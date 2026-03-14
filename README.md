@@ -18,14 +18,25 @@ pip install -r backend/requirements.txt
 cp backend/.env.example .env
 ```
 
-Edit `.env` and set `OPENAI_API_KEY` for real responses. If not set, the API
-returns a mock summary for testing.
+Edit `.env` and set Ollama + Whisper configuration. The API uses Ollama for
+summaries by default; use `USE_MOCK_SUMMARY=true` for mock responses.
 
 ### Run
 
 ```bash
 uvicorn app.main:app --reload --app-dir backend
 ```
+
+### Ollama + Whisper prerequisites
+
+1) Install and run Ollama, then pull the model:
+
+```bash
+ollama serve
+ollama pull qwen3.5:27b
+```
+
+2) Install FFmpeg for audio extraction (required by `yt-dlp` + Whisper).
 
 ### Test
 
@@ -36,5 +47,6 @@ curl -X POST http://127.0.0.1:8000/summarize \
 ```
 
 ### Notes
-- Transcript retrieval and Google STT are placeholders. Wire real services next.
+- Transcript retrieval uses YouTube captions when available.
+- Whisper is used locally for speech-to-text fallback.
 - Responses are cached in memory by `video_id` and `include_english`.

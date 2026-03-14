@@ -8,7 +8,7 @@ from app.config import get_settings
 from app.models import SummarizeRequest, SummarizeResponse
 from app.services.cache import InMemoryCache
 from app.services.summarizer import summarize_transcript
-from app.services.stt import transcribe_audio_stub
+from app.services.stt import transcribe_video_audio
 from app.services.youtube import extract_video_id, get_transcript, get_video_title
 
 
@@ -50,7 +50,8 @@ async def summarize(payload: SummarizeRequest) -> SummarizeResponse:
 
     transcript, source = get_transcript(video_id)
     if not transcript:
-        transcript, source = transcribe_audio_stub(video_id)
+        video_url = payload.video_url or f"https://www.youtube.com/watch?v={video_id}"
+        transcript, source = transcribe_video_audio(video_url, settings)
 
     summary = summarize_transcript(
         transcript=transcript,

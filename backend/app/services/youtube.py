@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from urllib.parse import parse_qs, urlparse
 
+from youtube_transcript_api import NoTranscriptFound, TranscriptsDisabled
+from youtube_transcript_api import YouTubeTranscriptApi
+
 
 def extract_video_id(url: str) -> str | None:
     parsed = urlparse(url)
@@ -18,11 +21,10 @@ def get_video_title(video_id: str) -> str | None:
 
 
 def get_transcript(video_id: str) -> tuple[str | None, str]:
-    """
-    Placeholder transcript retriever.
-    Returns (transcript_text, source).
-    """
-    return (
-        "This is a placeholder transcript for video " + video_id + ".",
-        "captions",
-    )
+    try:
+        items = YouTubeTranscriptApi.get_transcript(video_id)
+    except (TranscriptsDisabled, NoTranscriptFound):
+        return (None, "captions-unavailable")
+
+    text = " ".join(item.get("text", "") for item in items).strip()
+    return (text, "captions")

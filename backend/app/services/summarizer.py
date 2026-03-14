@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from openai import OpenAI
+import requests
 
 from app.config import Settings
 from app.models import ImportantTerm, SummaryPayload
@@ -72,6 +72,32 @@ def _build_prompt(transcript: str, include_english: bool) -> str:
     )
 
 
+def _extract_json(text: str) -> dict[str, Any]:
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start == -1 or end == -1 or start >= end:
+            raise
+        return json.loads(text[start : end + 1])
+
+
+def _ollama_chat(settings: Settings, messages: list[dict[str, str]]) -> str:
+    response = requests.post(
+        f"{settings.ollama_base_url}/api/chat",
+        json={
+            "model": settings.ollama_model,
+            "messages": messages,
+            "stream": False,
+        },
+        timeout=120,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    return payload["message"]["content"]
+
+
 def summarize_transcript(
     transcript: str,
     settings: Settings,
@@ -80,47 +106,42 @@ def summarize_transcript(
     if settings.mock_mode:
         return _mock_summary()
 
-    client = OpenAI(api_key=settings.openai_api_key)
-
     chunks = _chunk_text(transcript, settings.chunk_size_words)
     if len(chunks) == 1:
         prompt = _build_prompt(chunks[0], include_english)
-        response = client.chat.completions.create(
-            model=settings.openai_model,
-            messages=[
+        content = _ollama_chat(
+            settings,
+            [
                 {"role": "system", "content": "You output JSON only."},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.2,
         )
-        payload = json.loads(response.choices[0].message.content)
+        payload = _extract_json(content)
         return _parse_payload(payload, include_english)
 
     # Summarize each chunk in English, then summarize the combined result.
     chunk_summaries = []
     for chunk in chunks:
-        response = client.chat.completions.create(
-            model=settings.openai_model,
-            messages=[
+        content = _ollama_chat(
+            settings,
+            [
                 {
                     "role": "system",
                     "content": "Summarize this transcript chunk in English.",
                 },
                 {"role": "user", "content": chunk},
             ],
-            temperature=0.2,
         )
-        chunk_summaries.append(response.choices[0].message.content)
+        chunk_summaries.append(content)
 
     combined = "\n".join(chunk_summaries)
     final_prompt = _build_prompt(combined, include_english)
-    final_response = client.chat.completions.create(
-        model=settings.openai_model,
-        messages=[
+    final_content = _ollama_chat(
+        settings,
+        [
             {"role": "system", "content": "You output JSON only."},
             {"role": "user", "content": final_prompt},
         ],
-        temperature=0.2,
     )
-    payload = json.loads(final_response.choices[0].message.content)
+    payload = _extract_json(final_content)
     return _parse_payload(payload, include_english)

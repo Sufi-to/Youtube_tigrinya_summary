@@ -1,5 +1,8 @@
 fastapi==0.115.8
 uvicorn[standard]==0.34.0
 pydantic-settings==2.8.0
-openai==1.65.0
+requests==2.32.3
 python-dotenv==1.0.1
+openai-whisper==20231117
+yt-dlp==2025.1.26
+youtube-transcript-api==0.6.2

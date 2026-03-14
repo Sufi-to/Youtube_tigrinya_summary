@@ -7,8 +7,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
-    openai_api_key: str | None = None
-    openai_model: str = "gpt-4o-mini"
+    use_mock_summary: bool = False
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "qwen3.5:27b"
+
+    whisper_model: str = "base"
+    whisper_language: str = "en"
 
     stt_google_project_id: str | None = None
     stt_google_credentials_json: str | None = None
@@ -21,7 +25,7 @@ class Settings(BaseSettings):
 
     @property
     def mock_mode(self) -> bool:
-        return not bool(self.openai_api_key)
+        return self.use_mock_summary
 
 
 @lru_cache
