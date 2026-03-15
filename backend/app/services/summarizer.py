@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 import requests
 
 from app.config import Settings
 from app.models import ImportantTerm, SummaryPayload
+
+logger = logging.getLogger(__name__)
 
 
 def _chunk_text(text: str, chunk_size_words: int) -> list[str]:
@@ -65,7 +68,7 @@ def _build_prompt(transcript: str, include_english: bool) -> str:
     )
     return (
         "You are a helpful assistant that summarizes YouTube transcripts. "
-        "Return strict JSON with keys: topic, short_summary_ti, key_points_ti, "
+        "Return ONLY valid JSON with no extra text. Keys: topic, short_summary_ti, key_points_ti, "
         "important_terms_ti (list of {term, explanation}). "
         "Write natural, clear Tigrinya, not literal translation. "
         f"{extra}\n\nTranscript:\n{transcript}"
@@ -83,14 +86,22 @@ def _extract_json(text: str) -> dict[str, Any]:
         return json.loads(text[start : end + 1])
 
 
-def _ollama_chat(settings: Settings, messages: list[dict[str, str]]) -> str:
+def _ollama_chat(
+    settings: Settings,
+    messages: list[dict[str, str]],
+    json_mode: bool = False,
+) -> str:
+    body: dict[str, Any] = {
+        "model": settings.ollama_model,
+        "messages": messages,
+        "stream": False,
+    }
+    if json_mode:
+        body["format"] = "json"
+
     response = requests.post(
         f"{settings.ollama_base_url}/api/chat",
-        json={
-            "model": settings.ollama_model,
-            "messages": messages,
-            "stream": False,
-        },
+        json=body,
         timeout=120,
     )
     response.raise_for_status()
@@ -107,6 +118,8 @@ def summarize_transcript(
         return _mock_summary()
 
     chunks = _chunk_text(transcript, settings.chunk_size_words)
+    logger.info("Transcript split into %d chunk(s)", len(chunks))
+
     if len(chunks) == 1:
         prompt = _build_prompt(chunks[0], include_english)
         content = _ollama_chat(
@@ -115,13 +128,15 @@ def summarize_transcript(
                 {"role": "system", "content": "You output JSON only."},
                 {"role": "user", "content": prompt},
             ],
+            json_mode=True,
         )
         payload = _extract_json(content)
         return _parse_payload(payload, include_english)
 
     # Summarize each chunk in English, then summarize the combined result.
     chunk_summaries = []
-    for chunk in chunks:
+    for idx, chunk in enumerate(chunks, 1):
+        logger.info("Summarizing chunk %d/%d", idx, len(chunks))
         content = _ollama_chat(
             settings,
             [
@@ -142,6 +157,7 @@ def summarize_transcript(
             {"role": "system", "content": "You output JSON only."},
             {"role": "user", "content": final_prompt},
         ],
+        json_mode=True,
     )
     payload = _extract_json(final_content)
     return _parse_payload(payload, include_english)

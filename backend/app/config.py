@@ -14,10 +14,6 @@ class Settings(BaseSettings):
     whisper_model: str = "base"
     whisper_language: str = "en"
 
-    stt_google_project_id: str | None = None
-    stt_google_credentials_json: str | None = None
-    stt_language_code: str = "en-US"
-
     chunk_size_words: int = 1200
     cache_ttl_seconds: int = 60 * 60 * 24
 
