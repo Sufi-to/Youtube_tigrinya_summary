@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     use_mock_summary: bool = False
     ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "qwen3.5:27b"
+    ollama_model: str = "qwen3:8b"
 
     whisper_model: str = "base"
     whisper_language: str = "en"

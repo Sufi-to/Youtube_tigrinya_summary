@@ -37,7 +37,8 @@ def get_video_title(video_id: str) -> str | None:
 
 def get_transcript(video_id: str) -> tuple[str | None, str]:
     try:
-        items = YouTubeTranscriptApi.get_transcript(video_id)
+        ytt = YouTubeTranscriptApi()
+        transcript = ytt.fetch(video_id=video_id)
     except (TranscriptsDisabled, NoTranscriptFound):
         logger.info("Captions unavailable for video %s", video_id)
         return (None, "captions-unavailable")
@@ -45,5 +46,5 @@ def get_transcript(video_id: str) -> tuple[str | None, str]:
         logger.warning("Unexpected error fetching transcript for %s", video_id, exc_info=True)
         return (None, "captions-error")
 
-    text = " ".join(item.get("text", "") for item in items).strip()
+    text = " ".join(snippet.text for snippet in transcript.snippets).strip()
     return (text, "captions")
